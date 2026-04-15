@@ -21,21 +21,26 @@ export default function ChatInterface({ messages, onSend, isLoading, agentName, 
     onSend(text);
   };
 
+  const COMPLETE_TOKENS = [
+    '[REASONING_COMPLETE]',
+    '[CONCEPTUAL_COMPLETE]',
+    '[METACOGNITIVE_COMPLETE]',
+    '[SOLUTION_REASONING_COMPLETE]',
+    '[SOLUTION_CONCEPTUAL_COMPLETE]',
+    '[SOLUTION_METACOGNITIVE_COMPLETE]',
+  ];
+
   // Check if conversation is complete
   const isComplete = messages.some(m =>
-    m.role === 'assistant' && (
-      m.content.includes('[REASONING_COMPLETE]') ||
-      m.content.includes('[CONCEPTUAL_COMPLETE]') ||
-      m.content.includes('[METACOGNITIVE_COMPLETE]')
-    )
+    m.role === 'assistant' && COMPLETE_TOKENS.some(t => m.content.includes(t))
   );
 
   const cleanContent = (content) => {
-    return content
-      .replace(/\[REASONING_COMPLETE\]/g, '')
-      .replace(/\[CONCEPTUAL_COMPLETE\]/g, '')
-      .replace(/\[METACOGNITIVE_COMPLETE\]/g, '')
-      .trim();
+    let result = content;
+    for (const token of COMPLETE_TOKENS) {
+      result = result.split(token).join('');
+    }
+    return result.trim();
   };
 
   return (

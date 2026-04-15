@@ -21,6 +21,8 @@
   --success: #34d399;
   --danger: #f87171;
   --danger-muted: rgba(248, 113, 113, 0.12);
+  --warning: #f59e0b;
+  --warning-muted: rgba(245, 158, 11, 0.12);
   --radius: 10px;
   --radius-lg: 14px;
   --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);

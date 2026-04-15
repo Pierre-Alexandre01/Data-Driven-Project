@@ -335,8 +335,8 @@
 .react-flow__edge-text { font-family: var(--font) !important; font-size: 11px !important; }
 .react-flow__edge-textbg { fill: var(--bg-raised) !important; }
 .react-flow__edge-text { fill: var(--text-secondary) !important; }
-.react-flow__edge path { stroke: var(--border-hover) !important; }
-.react-flow__edge.selected path { stroke: var(--accent) !important; }
+.react-flow__edge path { stroke: var(--border-hover); }
+.react-flow__edge.selected path { stroke: var(--accent); }
 .react-flow__controls { background: var(--bg-raised) !important; border: 1px solid var(--border) !important; border-radius: 8px !important; }
 .react-flow__controls button { background: var(--bg-raised) !important; border-color: var(--border) !important; }
 .react-flow__controls button svg { fill: var(--text-secondary) !important; }
@@ -598,4 +598,312 @@
   display: flex;
   gap: 12px;
   margin-top: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 720px;
+}
+
+/* ── Layer Creation Screen ── */
+.layer-creation {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 24px;
+  overflow-y: auto;
+  gap: 18px;
+}
+
+.layer-creation .layer-creation-inner {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.layer-creation h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-align: center;
+}
+
+.layer-creation .subtitle {
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.warning-banner {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: var(--warning-muted);
+  border: 1px solid var(--warning);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  color: var(--warning);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.warning-banner svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.layer-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+
+.layer-form-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.layer-form-row .toolbar-input {
+  flex: 1;
+  width: auto;
+}
+
+.layer-form-hint {
+  font-size: 0.78rem;
+  color: var(--warning);
+  font-style: italic;
+  margin-top: -2px;
+}
+
+.color-picker {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.color-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.1s, border-color 0.15s, opacity 0.15s;
+}
+
+.color-swatch:hover:not(:disabled) {
+  transform: scale(1.1);
+}
+
+.color-swatch.selected {
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px var(--bg-raised), 0 0 0 4px var(--accent);
+}
+
+.color-swatch:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.layer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.layer-list-empty {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 16px;
+  font-style: italic;
+}
+
+.layer-list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+}
+
+.layer-color-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.layer-list-item .layer-name {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.layer-creation-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+/* ── Layer Tabs (Solution Editor) ── */
+.layer-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 10px 24px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.layer-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--text-secondary);
+  font-family: var(--font);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.layer-tab:hover {
+  color: var(--text);
+}
+
+.layer-tab.active {
+  color: white;
+}
+
+.layer-tab .layer-color-dot {
+  width: 10px;
+  height: 10px;
+}
+
+/* ── Solution Node ── */
+.solution-node {
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-radius: 12px;
+  padding: 12px 22px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-family: var(--font);
+  color: white;
+  cursor: grab;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  transition: transform 0.1s;
+}
+
+.solution-node:hover {
+  transform: translateY(-1px);
+}
+
+.solution-node-input {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 6px;
+  padding: 4px 8px;
+  color: white;
+  font-family: var(--font);
+  font-size: 0.95rem;
+  font-weight: 700;
+  outline: none;
+  text-align: center;
+  min-width: 140px;
+}
+
+.solution-node-input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ── Solution Mode Stats ── */
+.layer-stats-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.layer-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 4px 10px;
+}
+
+.layer-stat .layer-color-dot {
+  width: 8px;
+  height: 8px;
+}
+
+/* ── Surface ✓ Badge ── */
+.surface-done-badge {
+  background: rgba(52, 211, 153, 0.12);
+  color: var(--success);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Done screen per-layer summary ── */
+.layer-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0 4px;
+  align-items: center;
+}
+
+.layer-summary-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  min-width: 280px;
+}
+
+.layer-summary-item .layer-name {
+  flex: 1;
+  font-weight: 600;
+  color: var(--text);
+  text-align: left;
+}
+
+.layer-summary-item .layer-edge-count {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
 }

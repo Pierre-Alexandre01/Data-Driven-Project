@@ -1,6 +1,6 @@
 import { Check, CircleDot, Circle } from 'lucide-react';
 
-const STEPS = [
+const SURFACE_STEPS = [
   { key: 'upload', label: 'Upload Case' },
   { key: 'draw', label: 'Draw Map' },
   { key: 'reasoning', label: 'Reasoning Check' },
@@ -8,11 +8,25 @@ const STEPS = [
   { key: 'metacognitive', label: 'Metacognitive' },
 ];
 
-export default function StepIndicator({ currentStep, round = 1 }) {
+const SOLUTION_STEPS = [
+  { key: 'layer_creation', label: 'Define Layers' },
+  { key: 'sol_draw', label: 'Draw Solutions' },
+  { key: 'sol_reasoning', label: 'Reasoning Check' },
+  { key: 'sol_conceptual', label: 'Conceptual' },
+  { key: 'sol_metacognitive', label: 'Metacognitive' },
+];
+
+export default function StepIndicator({ currentStep, round = 1, mode = 'surface' }) {
+  const STEPS = mode === 'solution' ? SOLUTION_STEPS : SURFACE_STEPS;
   const currentIdx = STEPS.findIndex(s => s.key === currentStep);
 
   return (
     <div className="step-indicator">
+      {mode === 'solution' && (
+        <span className="surface-done-badge">
+          <Check size={12} /> Surface
+        </span>
+      )}
       {round > 1 && <span className="round-badge">Round {round}</span>}
       <div className="steps-row">
         {STEPS.map((step, i) => {

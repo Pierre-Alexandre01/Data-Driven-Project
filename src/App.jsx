@@ -3,15 +3,19 @@ import StepIndicator from './components/StepIndicator';
 import CaseUpload from './components/CaseUpload';
 import ConceptMapEditor from './components/ConceptMapEditor';
 import ChatInterface from './components/ChatInterface';
+import LayerCreation from './components/LayerCreation';
 import { initOpenAI, generateExpertMap, chatCompletion } from './services/openai';
 import {
   EXPERT_MAP_PROMPT,
   REASONING_CHECKER_PROMPT,
   CONCEPTUAL_SCAFFOLDING_PROMPT,
   METACOGNITIVE_SCAFFOLDING_PROMPT,
+  SOLUTION_REASONING_CHECKER_PROMPT,
+  SOLUTION_CONCEPTUAL_PROMPT,
+  SOLUTION_METACOGNITIVE_PROMPT,
   fillPrompt,
 } from './prompts/systemPrompts';
-import { Loader2, Key, RotateCcw, CheckCircle2 } from 'lucide-react';
+import { Loader2, Key, RotateCcw, CheckCircle2, Layers } from 'lucide-react';
 import './App.css';
 
 const AGENT_CONFIG = {
@@ -36,7 +40,33 @@ const AGENT_CONFIG = {
     mapMode: 'free',
     description: 'Finally, the Metacognitive agent will help you reflect on your thinking process — what assumptions you made, what you\'d do differently, and what you\'ve learned.',
   },
+  sol_reasoning: {
+    name: 'Solution Reasoning Checker',
+    prompt: SOLUTION_REASONING_CHECKER_PROMPT,
+    completeToken: '[SOLUTION_REASONING_COMPLETE]',
+    solutionMapMode: 'sol-links-only',
+    description: 'The Solution Reasoning Checker will examine the connections you drew for each strategy and ask you to defend them. It looks for wrong connections, missing connections, and inconsistencies between strategies.',
+  },
+  sol_conceptual: {
+    name: 'Solution Conceptual Scaffolding',
+    prompt: SOLUTION_CONCEPTUAL_PROMPT,
+    completeToken: '[SOLUTION_CONCEPTUAL_COMPLETE]',
+    solutionMapMode: 'sol-add-links',
+    description: 'Now the Conceptual agent will push you to think about second-order effects and underdeveloped strategies — what you may have missed in each layer.',
+  },
+  sol_metacognitive: {
+    name: 'Solution Metacognitive Scaffolding',
+    prompt: SOLUTION_METACOGNITIVE_PROMPT,
+    completeToken: '[SOLUTION_METACOGNITIVE_COMPLETE]',
+    solutionMapMode: 'sol-free',
+    description: 'Finally, reflect on your strategic thinking process — which strategy was easiest to map, what biases shaped your analysis, and what you would do differently.',
+  },
 };
+
+const SOLUTION_AGENTS = ['sol_reasoning', 'sol_conceptual', 'sol_metacognitive'];
+const isSolutionAgent = (key) => SOLUTION_AGENTS.includes(key);
+const isSolutionStep = (step) =>
+  step === 'layer_creation' || step === 'sol_draw' || step === 'sol_done' || isSolutionAgent(step);
 
 export default function App() {
   const [apiKey, setApiKey] = useState('');
@@ -49,7 +79,7 @@ export default function App() {
   const [caseStudy, setCaseStudy] = useState('');
   const [caseTitle, setCaseTitle] = useState('');
   const [expertMap, setExpertMap] = useState(null);
-  const [studentMap, setStudentMap] = useState({ nodes: [], edges: [] });
+  const [studentMap, setStudentMap] = useState({ nodes: [], edges: [], solutionLayers: [] });
 
   const [chatMessages, setChatMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -78,8 +108,8 @@ export default function App() {
   };
 
   const handleFirstMapSubmit = (mapData) => {
-    setStudentMap(mapData);
-    startAgentChat('reasoning', mapData);
+    setStudentMap(prev => ({ ...prev, nodes: mapData.nodes, edges: mapData.edges }));
+    startAgentChat('reasoning', { ...studentMap, ...mapData });
   };
 
   const startAgentChat = async (agentKey, mapOverride) => {
@@ -91,18 +121,30 @@ export default function App() {
     setIsLoading(true);
     setChatMessages([]);
 
-    const systemPrompt = fillPrompt(config.prompt, {
-      caseStudy,
-      expertMap,
-      studentMap: currentMap,
-    });
+    const templateVars = isSolutionAgent(agentKey)
+      ? {
+          caseStudy,
+          expertMap,
+          studentMap: { nodes: currentMap.nodes, edges: currentMap.edges },
+          solutionLayers: currentMap.solutionLayers || [],
+        }
+      : {
+          caseStudy,
+          expertMap,
+          studentMap: { nodes: currentMap.nodes, edges: currentMap.edges },
+        };
+
+    const systemPrompt = fillPrompt(config.prompt, templateVars);
+    const openingMessage = isSolutionAgent(agentKey)
+      ? 'I have submitted my solution layers. Please review them.'
+      : 'I have submitted my concept map. Please review it.';
 
     try {
       const firstMessage = await chatCompletion(systemPrompt, [
-        { role: 'user', content: 'I have submitted my concept map. Please review it.' },
+        { role: 'user', content: openingMessage },
       ]);
       setChatMessages([
-        { role: 'user', content: 'I have submitted my concept map. Please review it.', hidden: true },
+        { role: 'user', content: openingMessage, hidden: true },
         { role: 'assistant', content: firstMessage },
       ]);
     } catch (err) {
@@ -122,12 +164,20 @@ export default function App() {
     setChatMessages(newMessages);
     setIsLoading(true);
 
-    const systemPrompt = fillPrompt(config.prompt, {
-      caseStudy,
-      expertMap,
-      studentMap,
-    });
+    const templateVars = isSolutionAgent(step)
+      ? {
+          caseStudy,
+          expertMap,
+          studentMap: { nodes: studentMap.nodes, edges: studentMap.edges },
+          solutionLayers: studentMap.solutionLayers || [],
+        }
+      : {
+          caseStudy,
+          expertMap,
+          studentMap: { nodes: studentMap.nodes, edges: studentMap.edges },
+        };
 
+    const systemPrompt = fillPrompt(config.prompt, templateVars);
     const apiMessages = newMessages.map(m => ({ role: m.role, content: m.content }));
 
     try {
@@ -147,9 +197,10 @@ export default function App() {
   const handleChatComplete = () => setPhase('revise');
 
   const handleRevisionSubmit = (mapData) => {
-    setStudentMap(mapData);
-    if (step === 'reasoning') startAgentChat('conceptual', mapData);
-    else if (step === 'conceptual') startAgentChat('metacognitive', mapData);
+    const nextMap = { ...studentMap, nodes: mapData.nodes, edges: mapData.edges };
+    setStudentMap(nextMap);
+    if (step === 'reasoning') startAgentChat('conceptual', nextMap);
+    else if (step === 'conceptual') startAgentChat('metacognitive', nextMap);
     else if (step === 'metacognitive') setStep('done');
   };
 
@@ -157,6 +208,47 @@ export default function App() {
     setRound(r => r + 1);
     startAgentChat('reasoning', studentMap);
   };
+
+  /* ── Solution mode handlers ── */
+
+  const handleAddSolutionLayers = () => {
+    setStep('layer_creation');
+  };
+
+  const handleLayersLockedIn = (layers) => {
+    const nextMap = { ...studentMap, solutionLayers: layers };
+    setStudentMap(nextMap);
+    setStep('sol_draw');
+  };
+
+  const handleSolutionFirstSubmit = (layers) => {
+    const nextMap = { ...studentMap, solutionLayers: layers };
+    setStudentMap(nextMap);
+    startAgentChat('sol_reasoning', nextMap);
+  };
+
+  const handleSolutionRevisionSubmit = (layers) => {
+    const nextMap = { ...studentMap, solutionLayers: layers };
+    setStudentMap(nextMap);
+    if (step === 'sol_reasoning') startAgentChat('sol_conceptual', nextMap);
+    else if (step === 'sol_conceptual') startAgentChat('sol_metacognitive', nextMap);
+    else if (step === 'sol_metacognitive') setStep('sol_done');
+  };
+
+  const handleImproveSolutionLayers = () => {
+    setRound(r => r + 1);
+    setStep('sol_draw');
+  };
+
+  const handleImproveSurfaceFromSolution = () => {
+    setRound(r => r + 1);
+    setStep('draw');
+  };
+
+  /* ── Helpers for rendering ── */
+
+  const stepIndicatorMode = isSolutionStep(step) ? 'solution' : 'surface';
+  const stepIndicatorCurrent = step;
 
   /* ── RENDER ── */
 
@@ -206,12 +298,17 @@ export default function App() {
   }
 
   if (step === 'draw') {
+    const isReturningToSurface = round > 1 || studentMap.nodes.length > 0;
     return (
       <div className="app-container">
-        <StepIndicator currentStep="draw" round={round} />
+        <StepIndicator currentStep="draw" round={round} mode="surface" />
         <div className="step-header">
-          <h2>Draw Your Concept Map</h2>
-          <p>Read the case study and create a concept map showing the key concepts and their relationships.</p>
+          <h2>{isReturningToSurface ? 'Improve Your Surface Map' : 'Draw Your Concept Map'}</h2>
+          <p>
+            {isReturningToSurface
+              ? 'Make any edits you want to your surface map — add, modify, or remove concepts and links. When you submit, you\'ll go through the scaffolding cycle again. Your solution layers are preserved.'
+              : 'Read the case study and create a concept map showing the key concepts and their relationships.'}
+          </p>
           <details className="case-accordion">
             <summary>View Case Study: {caseTitle}</summary>
             <div className="case-text">{caseStudy}</div>
@@ -234,7 +331,7 @@ export default function App() {
     if (phase === 'chat') {
       return (
         <div className="app-container">
-          <StepIndicator currentStep={step} round={round} />
+          <StepIndicator currentStep={step} round={round} mode="surface" />
           <div className="step-header">
             <h2>{config.name}</h2>
             <p>
@@ -260,7 +357,7 @@ export default function App() {
 
     return (
       <div className="app-container">
-        <StepIndicator currentStep={step} round={round} />
+        <StepIndicator currentStep={step} round={round} mode="surface" />
         <div className="step-header">
           <h2>Revise Your Map</h2>
           <p>
@@ -305,10 +402,138 @@ export default function App() {
           </div>
           <div className="done-actions">
             <button onClick={handleAnotherRound} className="btn-secondary">
-              <RotateCcw size={16} /> Another Round
+              <RotateCcw size={16} /> Improve Surface Map
+            </button>
+            <button onClick={handleAddSolutionLayers} className="btn-primary">
+              <Layers size={16} /> Add Solution Layers
+            </button>
+            <button className="btn-secondary" onClick={() => alert('In production, this would save your final map and session data.')}>
+              <CheckCircle2 size={16} /> I&apos;m Done
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'layer_creation') {
+    return (
+      <div className="app-container">
+        <StepIndicator currentStep="layer_creation" round={round} mode="solution" />
+        <LayerCreation
+          initialLayers={studentMap.solutionLayers || []}
+          onStartDrawing={handleLayersLockedIn}
+          onCancel={() => setStep('done')}
+        />
+      </div>
+    );
+  }
+
+  if (step === 'sol_draw') {
+    return (
+      <div className="app-container">
+        <StepIndicator currentStep="sol_draw" round={round} mode="solution" />
+        <div className="step-header">
+          <h2>Draw Your Solution Layers</h2>
+          <p>
+            Switch between strategy tabs to draw connections from each strategy to the surface map concepts it
+            affects. The surface map is read-only; only your strategy connections are editable.
+          </p>
+          <details className="case-accordion">
+            <summary>View Case Study: {caseTitle}</summary>
+            <div className="case-text">{caseStudy}</div>
+          </details>
+        </div>
+        <ConceptMapEditor
+          solutionMode
+          surfaceNodes={studentMap.nodes}
+          surfaceEdges={studentMap.edges}
+          solutionLayers={studentMap.solutionLayers}
+          solutionMapMode="sol-free"
+          onSolutionSubmit={handleSolutionFirstSubmit}
+          submitLabel="Submit All Layers for Review →"
+        />
+      </div>
+    );
+  }
+
+  if (isSolutionAgent(step)) {
+    const config = AGENT_CONFIG[step];
+
+    if (phase === 'chat') {
+      return (
+        <div className="app-container">
+          <StepIndicator currentStep={step} round={round} mode="solution" />
+          <div className="step-header">
+            <h2>{config.name}</h2>
+            <p>{config.description}</p>
+            <details className="case-accordion">
+              <summary>View Case Study: {caseTitle}</summary>
+              <div className="case-text">{caseStudy}</div>
+            </details>
+          </div>
+          <ChatInterface
+            messages={chatMessages.filter(m => !m.hidden)}
+            onSend={handleChatSend}
+            isLoading={isLoading}
+            agentName={config.name}
+            onComplete={handleChatComplete}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div className="app-container">
+        <StepIndicator currentStep={step} round={round} mode="solution" />
+        <div className="step-header">
+          <h2>Revise Your Solution Layers</h2>
+          <p>
+            {config.solutionMapMode === 'sol-links-only'
+              ? 'The Solution Reasoning Checker focused on errors in your existing layer connections. In this revision, you can modify or delete connections, but cannot add new ones yet.'
+              : config.solutionMapMode === 'sol-add-links'
+              ? 'The Conceptual agent highlighted gaps in your strategies. You can now add new connections to address them.'
+              : 'Based on your reflections, make any final revisions you\'d like to your layer connections.'}
+          </p>
+        </div>
+        <ConceptMapEditor
+          solutionMode
+          surfaceNodes={studentMap.nodes}
+          surfaceEdges={studentMap.edges}
+          solutionLayers={studentMap.solutionLayers}
+          solutionMapMode={config.solutionMapMode}
+          onSolutionSubmit={handleSolutionRevisionSubmit}
+          submitLabel={step === 'sol_metacognitive' ? 'Finish Revision →' : 'Submit Revision →'}
+        />
+      </div>
+    );
+  }
+
+  if (step === 'sol_done') {
+    return (
+      <div className="app-container">
+        <div className="center-screen">
+          <CheckCircle2 size={56} strokeWidth={1.5} className="hero-icon done-icon" />
+          <h1>Solution Round Complete</h1>
+          <p className="subtitle">Your solution layers have been through all three scaffolding layers.</p>
+          <div className="layer-summary">
+            {(studentMap.solutionLayers || []).map(l => (
+              <div key={l.id} className="layer-summary-item">
+                <span className="layer-color-dot" style={{ background: l.color }} />
+                <span className="layer-name">{l.name}</span>
+                <span className="layer-edge-count">{l.edges.length} {l.edges.length === 1 ? 'connection' : 'connections'}</span>
+              </div>
+            ))}
+          </div>
+          <div className="done-actions">
+            <button onClick={handleImproveSolutionLayers} className="btn-secondary">
+              <RotateCcw size={16} /> Improve Solution Layers
+            </button>
+            <button onClick={handleImproveSurfaceFromSolution} className="btn-secondary">
+              <RotateCcw size={16} /> Improve Surface Map
             </button>
             <button className="btn-primary" onClick={() => alert('In production, this would save your final map and session data.')}>
-              <CheckCircle2 size={16} /> I'm Done
+              <CheckCircle2 size={16} /> I&apos;m Done
             </button>
           </div>
         </div>
